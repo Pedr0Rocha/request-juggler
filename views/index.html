@@ -12,11 +12,20 @@
   <title>Request Juggler</title>
 </head>
 <body>
-  <h1>Request Juggler Stats</h1>
-  <h3>Round robin strategy</h3>
+  <h1>Request Juggler Stats 🤹</h1>
+  <h3>Round Robin strategy</h3>
+  <p>Requests will be equally distributed between each server</p>
+  <hr />
   {{ template "content" . }}
 </body>
-{{ end }} {{ block "content" . }}
+<style>
+  body {
+    font-family: "Lucida Console", monospace;
+  }
+</style>
+{{ end }}
+
+{{ block "content" . }}
 <div hx-get="/stats" hx-trigger="every 500ms" hx-swap="outerHTML">
   <h3>Total requests: {{ .TotalRequestCount }}</h3>
   <h3>Servers</h3>
