@@ -52,10 +52,9 @@ var loadBalancer = NewLoadBalancer()
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		loadBalancer.Mutex.Lock()
+		nextServer := loadBalancer.RoundRobin()
 		loadBalancer.RequestCount++
 		loadBalancer.Mutex.Unlock()
-
-		nextServer := loadBalancer.RoundRobin()
 
 		proxy := httputil.NewSingleHostReverseProxy(nextServer.URL)
 		proxy.ServeHTTP(w, r)
@@ -66,6 +65,9 @@ func main() {
 	})
 
 	http.HandleFunc("/stats", StatsHandler)
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		return
+	})
 
 	fmt.Println("load balancer running at 8080")
 	http.ListenAndServe(":8080", nil)

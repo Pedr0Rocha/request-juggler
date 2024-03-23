@@ -1,12 +1,12 @@
 all: build
 
 build:
-	go build -o bin/load-balancer .
+	go build -o bin/request-juggler .
 
 clean:
-	rm -f bin/load-balancer
+	rm -f bin/request-juggler
 
 run: build
-	./bin/load-balancer
+	./bin/request-juggler
 
 .PHONY: all build run
