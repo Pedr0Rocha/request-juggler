@@ -6,31 +6,12 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
-	"text/template"
 )
 
-type ServerData struct {
-	URL               string
-	RequestsProcessed int
-}
-
-type StatsData struct {
-	TotalRequestCount int
-	ServersData       []ServerData
-}
-
 type Server struct {
-	URL               string
+	URL               *url.URL
 	RequestsProcessed int
 	Mutex             sync.Mutex
-}
-
-func (s *Server) parseURL() (*url.URL, error) {
-	url, err := url.Parse(s.URL)
-	if err != nil {
-		return nil, err
-	}
-	return url, nil
 }
 
 type LoadBalancer struct {
@@ -39,26 +20,36 @@ type LoadBalancer struct {
 	Mutex        sync.Mutex
 }
 
+func NewLoadBalancer() *LoadBalancer {
+	serverUrls := []string{
+		"http://localhost:9770",
+		"http://localhost:9771",
+		"http://localhost:9772",
+		"http://localhost:9773",
+		"http://localhost:9774",
+	}
+
+	var servers []*Server
+	for _, s := range serverUrls {
+		url, _ := url.Parse(s)
+		servers = append(servers, &Server{
+			URL: url,
+		})
+	}
+
+	return &LoadBalancer{
+		Servers: servers,
+	}
+}
+
 func (lb *LoadBalancer) RoundRobin() *Server {
 	nextServerIndex := lb.RequestCount % len(lb.Servers)
 	return lb.Servers[nextServerIndex]
 }
 
-var servers = []*Server{
-	{URL: "http://localhost:9770"},
-	{URL: "http://localhost:9771"},
-	{URL: "http://localhost:9772"},
-	{URL: "http://localhost:9773"},
-	{URL: "http://localhost:9774"},
-}
+var loadBalancer = NewLoadBalancer()
 
 func main() {
-	loadBalancer := &LoadBalancer{Servers: servers}
-
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		return
-	})
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		loadBalancer.Mutex.Lock()
 		loadBalancer.RequestCount++
@@ -66,13 +57,7 @@ func main() {
 
 		nextServer := loadBalancer.RoundRobin()
 
-		url, err := nextServer.parseURL()
-		if err != nil {
-			fmt.Println("could not parse server url", err)
-			return
-		}
-
-		proxy := httputil.NewSingleHostReverseProxy(url)
+		proxy := httputil.NewSingleHostReverseProxy(nextServer.URL)
 		proxy.ServeHTTP(w, r)
 
 		nextServer.Mutex.Lock()
@@ -80,35 +65,8 @@ func main() {
 		nextServer.Mutex.Unlock()
 	})
 
-	http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
-		data := StatsData{
-			TotalRequestCount: loadBalancer.RequestCount,
-			ServersData:       []ServerData{},
-		}
-
-		for _, s := range loadBalancer.Servers {
-			data.ServersData = append(data.ServersData, ServerData{
-				URL:               s.URL,
-				RequestsProcessed: s.RequestsProcessed,
-			})
-		}
-
-		isRequestFromHTMX := r.Header.Get("HX-Request") == "true"
-
-		// just update the content
-		if isRequestFromHTMX {
-			tmpl := template.Must(template.New("content").ParseFiles("./views/index.html"))
-			tmpl.ExecuteTemplate(w, "content", data)
-			return
-		}
-
-		tmpl := template.Must(template.New("index").ParseFiles("./views/index.html"))
-		tmpl.ExecuteTemplate(w, "index", data)
-	})
+	http.HandleFunc("/stats", StatsHandler)
 
 	fmt.Println("load balancer running at 8080")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		panic(err)
-	}
+	http.ListenAndServe(":8080", nil)
 }
