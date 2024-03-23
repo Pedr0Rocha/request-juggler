@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  api1: &api
+    container_name: proxytome1
+    build:
+      context: ./api
+    environment:
+      PORT: 9770
+    ports:
+      - "9770:8000"
+  api2:
+    <<: *api
+    container_name: proxytome2
+    environment:
+      PORT: 9771
+    ports:
+      - "9771:8000"
+  api3:
+    <<: *api
+    container_name: proxytome3
+    environment:
+      PORT: 9772
+    ports:
+      - "9772:8000"
+  api4:
+    <<: *api
+    container_name: proxytome4
+    environment:
+      PORT: 9773
+    ports:
+      - "9773:8000"
+  api5:
+    <<: *api
+    container_name: proxytome5
+    environment:
+      PORT: 9774
+    ports:
+      - "9774:8000"
