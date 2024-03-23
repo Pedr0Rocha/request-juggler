@@ -6,7 +6,18 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
+	"text/template"
 )
+
+type ServerData struct {
+	URL               string
+	RequestsProcessed int
+}
+
+type StatsData struct {
+	TotalRequestCount int
+	ServersData       []ServerData
+}
 
 type Server struct {
 	URL               string
@@ -42,10 +53,13 @@ var servers = []*Server{
 }
 
 func main() {
-	loadBalancer := LoadBalancer{Servers: servers}
+	loadBalancer := &LoadBalancer{Servers: servers}
+
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		return
+	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// fmt.Println("[LB] - Request received")
 		loadBalancer.Mutex.Lock()
 		loadBalancer.RequestCount++
 		loadBalancer.Mutex.Unlock()
@@ -64,14 +78,32 @@ func main() {
 		nextServer.Mutex.Lock()
 		nextServer.RequestsProcessed++
 		nextServer.Mutex.Unlock()
-		// fmt.Println("Proxy to", url.String())
 	})
 
 	http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("LB had %d requests in total\n", loadBalancer.RequestCount)
-		for _, s := range loadBalancer.Servers {
-			fmt.Printf("Server %s processed %d requests\n", s.URL, s.RequestsProcessed)
+		data := StatsData{
+			TotalRequestCount: loadBalancer.RequestCount,
+			ServersData:       []ServerData{},
 		}
+
+		for _, s := range loadBalancer.Servers {
+			data.ServersData = append(data.ServersData, ServerData{
+				URL:               s.URL,
+				RequestsProcessed: s.RequestsProcessed,
+			})
+		}
+
+		isRequestFromHTMX := r.Header.Get("HX-Request") == "true"
+
+		// just update the content
+		if isRequestFromHTMX {
+			tmpl := template.Must(template.New("content").ParseFiles("./views/index.html"))
+			tmpl.ExecuteTemplate(w, "content", data)
+			return
+		}
+
+		tmpl := template.Must(template.New("index").ParseFiles("./views/index.html"))
+		tmpl.ExecuteTemplate(w, "index", data)
 	})
 
 	fmt.Println("load balancer running at 8080")

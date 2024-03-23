@@ -1,0 +1,30 @@
+{{ define "index" }}
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script
+    src="https://unpkg.com/htmx.org@1.9.10"
+    integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+    crossorigin="anonymous"
+  ></script>
+  <title>Request Juggler</title>
+</head>
+<body>
+  <h1>Request Juggler Stats</h1>
+  <h3>Round robin strategy</h3>
+  {{ template "content" . }}
+</body>
+{{ end }} {{ block "content" . }}
+<div hx-get="/stats" hx-trigger="every 500ms" hx-swap="outerHTML">
+  <h3>Total requests: {{ .TotalRequestCount }}</h3>
+  <h3>Servers</h3>
+  <ul>
+    {{ range .ServersData }}
+    <li>
+      <p><strong>{{ .URL }}:</strong> {{ .RequestsProcessed }}</p>
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}
